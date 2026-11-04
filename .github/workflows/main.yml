@@ -1,127 +1,39 @@
-# app/build.gradle.kts
-import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
+name: Build NovaBoost APK
 
-plugins {
-  alias(libs.plugins.android.application)
-  alias(libs.plugins.kotlin.compose)
-  alias(libs.plugins.google.devtools.ksp)
-  alias(libs.plugins.secrets)
-  alias(libs.plugins.google.services)
-}
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
 
-android {
-  namespace = "com.example"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-  defaultConfig {
-    applicationId = "com.aistudio.modinjector.vxqpmz"
-    minSdk = 24
-    targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-  }
+    - name: Extract Project Files
+      run: unzip -q mod-injector-nov-4-2026-7-33-58-pm.zip -d app_project
 
-  signingConfigs {
-    create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
-    }
-    create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
-    }
-  }
+    - name: Set up Java 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
 
-  buildTypes {
-    release {
-      isCrunchPngs = false
-      isMinifyEnabled = false
-      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
-    }
-    debug {
-      signingConfig = signingConfigs.getByName("debugConfig")
-    }
-  }
-  compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
-  }
-  buildFeatures {
-    compose = true
-    buildConfig = true
-  }
-  androidResources {
-    noCompress += "tflite"
-  }
-  testOptions { unitTests { isIncludeAndroidResources = true } }
-  dependenciesInfo {
-    includeInApk = false
-    includeInBundle = true
-  }
-}
+    - name: Build APK
+      working-directory: ./app_project
+      run: |
+        if [ -f "./gradlew" ]; then
+          chmod +x gradlew
+          ./gradlew assembleDebug
+        else
+          gradle assembleDebug
+        fi
 
-secrets {
-  propertiesFileName = ".env"
-  defaultPropertiesFileName = ".env.example"
-  ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
-}
-
-googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
-
-dependencies {
-  implementation(platform(libs.androidx.compose.bom))
-  implementation(libs.androidx.activity.compose)
-  implementation(libs.androidx.compose.material.icons.core)
-  implementation(libs.androidx.compose.material.icons.extended)
-  implementation(libs.androidx.compose.material3)
-  implementation(libs.androidx.compose.ui)
-  implementation(libs.androidx.compose.ui.graphics)
-  implementation(libs.androidx.compose.ui.tooling.preview)
-  implementation(libs.androidx.core.ktx)
-  implementation(libs.androidx.documentfile)
-  implementation(libs.androidx.lifecycle.runtime.compose)
-  implementation(libs.androidx.lifecycle.runtime.ktx)
-  implementation(libs.androidx.lifecycle.viewmodel.compose)
-  implementation(libs.kotlinx.coroutines.android)
-  implementation(libs.kotlinx.coroutines.core)
-  implementation(libs.logging.interceptor)
-  implementation(libs.okhttp)
-  implementation(libs.tensorflow.lite)
-  implementation(libs.tensorflow.lite.gpu)
-  implementation(libs.tensorflow.lite.gpu.api)
-
-  testImplementation(libs.androidx.compose.ui.test.junit4)
-  testImplementation(libs.androidx.core)
-  testImplementation(libs.androidx.junit)
-  testImplementation(libs.junit)
-  testImplementation(libs.kotlinx.coroutines.test)
-  testImplementation(libs.robolectric)
-
-  androidTestImplementation(platform(libs.androidx.compose.bom))
-  androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-  androidTestImplementation(libs.androidx.espresso.core)
-  androidTestImplementation(libs.androidx.junit)
-  androidTestImplementation(libs.androidx.runner)
-
-  debugImplementation(libs.androidx.compose.ui.test.manifest)
-  debugImplementation(libs.androidx.compose.ui.tooling)
-}
-
-val copyApkToRoot by tasks.registering(Copy::class) {
-  dependsOn("packageDebug")
-  from(layout.buildDirectory.file("outputs/apk/debug/app-debug.apk"))
-  into(rootProject.layout.projectDirectory.dir("apk"))
-  rename("app-debug.apk", "ModInjector.apk")
-}
-
-tasks.matching { it.name == "assembleDebug" }.configureEach {
-  finalizedBy(copyApkToRoot)
-}
+    - name: Upload APK File
+      uses: actions/upload-artifact@v4
+      with:
+        name: NovaBoost-APK
+        path: app_project/apk/ModInjector.apk
