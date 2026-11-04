@@ -22,6 +22,11 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
+    - name: Generate missing debug.keystore
+      working-directory: ./app_project
+      run: |
+        keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+
     - name: Build APK
       working-directory: ./app_project
       run: |
